@@ -214,16 +214,16 @@ export class HaConfigAppsRepositories extends LitElement {
     }
   }
 
-  private async _showCredentialsDialog(
+  private _showCredentialsDialog = async (
     ev: HASSDomCurrentTargetEvent<HaIconButton>
-  ) {
+  ) => {
     const repository = this._repositories?.find(
       (repo) => repo.slug === ev.currentTarget.dataset.repository
     );
     if (repository && (await showRepositoryDialog(this, { repository }))) {
       await this._loadData();
     }
-  }
+  };
 
   private _removeRepository = async (ev: Event) => {
     const slug = (ev.currentTarget as any).slug;
