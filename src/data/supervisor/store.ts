@@ -42,12 +42,18 @@ export interface StoreAddonDetails extends StoreAddon {
   signed: boolean;
 }
 
-interface StoreRepository {
+export interface StoreRepository {
   maintainer: string;
   name: string;
   slug: string;
   source: string;
   url: string;
+  has_credentials?: boolean;
+}
+
+export interface RepositoryCredentials {
+  username: string;
+  password: string;
 }
 
 export interface SupervisorStore {
@@ -64,12 +70,31 @@ export const fetchStoreRepositories = async (
 ): Promise<StoreRepository[]> => supervisorApiCall(hass, "/store/repositories");
 
 export const addStoreRepository = async (
-  hass: HomeAssistant,
-  repository: string
+  hass: Pick<HomeAssistant, "callWS">,
+  repository: string,
+  credentials?: RepositoryCredentials
 ): Promise<void> =>
   supervisorApiCall(hass, "/store/repositories", {
     method: "post",
-    data: { repository },
+    data: { repository, credentials },
+  });
+
+export const setStoreRepositoryCredentials = async (
+  hass: Pick<HomeAssistant, "callWS">,
+  repository: string,
+  credentials: RepositoryCredentials
+): Promise<void> =>
+  supervisorApiCall(hass, `/store/repositories/${repository}/credentials`, {
+    method: "post",
+    data: { credentials },
+  });
+
+export const removeStoreRepositoryCredentials = async (
+  hass: Pick<HomeAssistant, "callWS">,
+  repository: string
+): Promise<void> =>
+  supervisorApiCall(hass, `/store/repositories/${repository}/credentials`, {
+    method: "delete",
   });
 
 export const removeStoreRepository = async (

@@ -24,18 +24,13 @@ import type {
   StoreAddon,
   SupervisorStore,
 } from "../../../data/supervisor/store";
-import {
-  addStoreRepository,
-  fetchSupervisorStore,
-} from "../../../data/supervisor/store";
-import {
-  showAlertDialog,
-  showConfirmationDialog,
-} from "../../../dialogs/generic/show-dialog-box";
+import { fetchSupervisorStore } from "../../../data/supervisor/store";
+import { showAlertDialog } from "../../../dialogs/generic/show-dialog-box";
 import "../../../layouts/hass-error-screen";
 import "../../../layouts/hass-loading-screen";
 import "../../../layouts/hass-subpage";
 import type { HomeAssistant, Route } from "../../../types";
+import { showRepositoryDialog } from "./dialogs/repositories/show-dialog-repository";
 
 import "./supervisor-apps-repository";
 
@@ -251,29 +246,8 @@ export class HaConfigAppsAvailable extends LitElement {
       return;
     }
 
-    if (
-      !(await showConfirmationDialog(this, {
-        title: this.hass.localize(
-          "ui.panel.config.apps.my.add_repository_title"
-        ),
-        text: this.hass.localize(
-          "ui.panel.config.apps.my.add_repository_store_description",
-          { repository: repositoryUrl }
-        ),
-        confirmText: this.hass.localize("ui.common.add"),
-        dismissText: this.hass.localize("ui.common.cancel"),
-      }))
-    ) {
-      return;
-    }
-
-    try {
-      await addStoreRepository(this.hass, repositoryUrl);
+    if (await showRepositoryDialog(this, { repositoryUrl })) {
       await this._loadData();
-    } catch (err: any) {
-      showAlertDialog(this, {
-        text: extractApiErrorMessage(err),
-      });
     }
   }
 

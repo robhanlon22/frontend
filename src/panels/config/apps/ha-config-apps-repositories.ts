@@ -1,44 +1,38 @@
-import { mdiDelete, mdiDeleteOff, mdiPlus } from "@mdi/js";
+import { mdiDelete, mdiDeleteOff, mdiKey, mdiPlus } from "@mdi/js";
 import type { CSSResultGroup } from "lit";
 import { css, html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import memoizeOne from "memoize-one";
 import { fireEvent } from "../../../common/dom/fire_event";
+import type { HASSDomCurrentTargetEvent } from "../../../common/dom/fire_event";
 import { caseInsensitiveStringCompare } from "../../../common/string/compare";
 import "../../../components/data-table/ha-data-table";
 import type { DataTableColumnContainer } from "../../../components/data-table/ha-data-table";
 import "../../../components/ha-button";
 import "../../../components/ha-icon-button";
+import type { HaIconButton } from "../../../components/ha-icon-button";
 import "../../../components/ha-svg-icon";
 import "../../../components/ha-tooltip";
 import type {
   HassioAddonInfo,
-  HassioAddonRepository,
   HassioAddonsInfo,
 } from "../../../data/hassio/addon";
 import { fetchHassioAddonsInfo } from "../../../data/hassio/addon";
 import { extractApiErrorMessage } from "../../../data/hassio/common";
 import {
-  addStoreRepository,
   fetchStoreRepositories,
   removeStoreRepository,
 } from "../../../data/supervisor/store";
+import type { StoreRepository } from "../../../data/supervisor/store";
 import {
   showAlertDialog,
   showConfirmationDialog,
-  showPromptDialog,
 } from "../../../dialogs/generic/show-dialog-box";
 import "../../../layouts/hass-error-screen";
 import "../../../layouts/hass-loading-screen";
 import "../../../layouts/hass-subpage";
 import type { HomeAssistant, Route } from "../../../types";
-
-interface RepositoryRowData {
-  slug: string;
-  name: string;
-  maintainer: string;
-  url: string;
-}
+import { showRepositoryDialog } from "./dialogs/repositories/show-dialog-repository";
 
 @customElement("ha-config-apps-repositories")
 export class HaConfigAppsRepositories extends LitElement {
@@ -48,7 +42,7 @@ export class HaConfigAppsRepositories extends LitElement {
 
   @property({ attribute: false }) public route!: Route;
 
-  @state() private _repositories?: HassioAddonRepository[];
+  @state() private _repositories?: StoreRepository[];
 
   @state() private _addon?: HassioAddonsInfo;
 
@@ -62,7 +56,7 @@ export class HaConfigAppsRepositories extends LitElement {
     (
       localize: HomeAssistant["localize"],
       usedRepositories: string[]
-    ): DataTableColumnContainer<RepositoryRowData> => ({
+    ): DataTableColumnContainer<StoreRepository> => ({
       name: {
         title: localize("ui.panel.config.apps.store.repositories"),
         main: true,
@@ -82,6 +76,32 @@ export class HaConfigAppsRepositories extends LitElement {
         sortable: true,
         filterable: true,
         flex: 2,
+      },
+      credentials: {
+        title: "",
+        label: localize("ui.panel.config.apps.repositories.manage_credentials"),
+        type: "icon-button",
+        showNarrow: true,
+        template: (row) => {
+          const https = row.source.toLowerCase().startsWith("https://");
+          return html`
+            <ha-tooltip .for="credentials-btn-${row.slug}">
+              ${localize(
+                https
+                  ? "ui.panel.config.apps.repositories.manage_credentials"
+                  : "ui.panel.config.apps.repositories.credentials_require_https"
+              )}
+            </ha-tooltip>
+            <ha-icon-button
+              .id="credentials-btn-${row.slug}"
+              .label=${localize("ui.panel.config.apps.repositories.manage_credentials")}
+              .path=${mdiKey}
+              .disabled=${!https}
+              data-repository=${row.slug}
+              @click=${this._showCredentialsDialog}
+            ></ha-icon-button>
+          `;
+        },
       },
       actions: {
         title: "",
@@ -113,7 +133,7 @@ export class HaConfigAppsRepositories extends LitElement {
     })
   );
 
-  private _filteredRepositories = memoizeOne((repos: HassioAddonRepository[]) =>
+  private _filteredRepositories = memoizeOne((repos: StoreRepository[]) =>
     repos
       .filter(
         (repo) =>
@@ -129,22 +149,12 @@ export class HaConfigAppsRepositories extends LitElement {
   );
 
   private _filteredUsedRepositories = memoizeOne(
-    (repos: HassioAddonRepository[], addons: HassioAddonInfo[]) =>
+    (repos: StoreRepository[], addons: HassioAddonInfo[]) =>
       repos
         .filter((repo) =>
           addons.some((addon) => addon.repository === repo.slug)
         )
         .map((repo) => repo.slug)
-  );
-
-  private _data = memoizeOne(
-    (repos: HassioAddonRepository[]): RepositoryRowData[] =>
-      repos.map((repo) => ({
-        slug: repo.slug,
-        name: repo.name,
-        maintainer: repo.maintainer,
-        url: repo.url,
-      }))
   );
 
   protected render() {
@@ -182,7 +192,7 @@ export class HaConfigAppsRepositories extends LitElement {
       >
         <ha-data-table
           .columns=${this._columns(this.hass.localize, usedRepositories)}
-          .data=${this._data(repositories)}
+          .data=${repositories}
           .noDataText=${this.hass.localize(
             "ui.panel.config.apps.repositories.no_repositories"
           )}
@@ -198,24 +208,21 @@ export class HaConfigAppsRepositories extends LitElement {
   }
 
   private async _showAddRepositoryDialog() {
-    showPromptDialog(this, {
-      title: this.hass.localize("ui.panel.config.apps.repositories.add_title"),
-      inputLabel: this.hass.localize("ui.panel.config.apps.repositories.url"),
-      inputType: "url",
-      confirmText: this.hass.localize("ui.panel.config.apps.repositories.add"),
-      action: async (url) => {
-        try {
-          await addStoreRepository(this.hass, url!);
-          await this._loadData();
-          fireEvent(this, "apps-collection-refresh", { collection: "store" });
-        } catch (err: any) {
-          showAlertDialog(this, {
-            text: extractApiErrorMessage(err),
-          });
-          throw err;
-        }
-      },
-    });
+    if (await showRepositoryDialog(this)) {
+      await this._loadData();
+      fireEvent(this, "apps-collection-refresh", { collection: "store" });
+    }
+  }
+
+  private async _showCredentialsDialog(
+    ev: HASSDomCurrentTargetEvent<HaIconButton>
+  ) {
+    const repository = this._repositories?.find(
+      (repo) => repo.slug === ev.currentTarget.dataset.repository
+    );
+    if (repository && (await showRepositoryDialog(this, { repository }))) {
+      await this._loadData();
+    }
   }
 
   private _removeRepository = async (ev: Event) => {

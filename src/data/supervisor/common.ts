@@ -7,7 +7,7 @@ export interface SupervisorApiCallOptions {
 }
 
 export const supervisorApiCall = async <T>(
-  hass: HomeAssistant,
+  hass: Pick<HomeAssistant, "callWS">,
   endpoint: string,
   options?: SupervisorApiCallOptions
 ): Promise<T> =>

@@ -3228,6 +3228,17 @@
           "repositories": {
             "maintainer": "Maintainer",
             "url": "URL",
+            "repository": "Repository URL",
+            "authenticate": "Requires authentication",
+            "username": "Username",
+            "password": "Password or personal access token",
+            "password_helper": "For GitHub, enter a fine-grained personal access token with Contents read-only access to this repository. Use your GitHub username above.",
+            "credentials_title": "Repository credentials",
+            "credentials": "Credentials",
+            "manage_credentials": "Manage credentials",
+            "credentials_require_https": "Credentials require an HTTPS repository",
+            "remove_credentials": "Remove credentials",
+            "confirm_remove_credentials": "Remove saved credentials? The repository stays in the store, but private updates will fail until you add new credentials. This does not revoke the token with your Git provider.",
             "confirm_remove": "Are you sure you want to remove {name}?",
             "add_title": "Add repository",
             "add": "Add",
@@ -3248,9 +3259,6 @@
             "password": "Password"
           },
           "my": {
-            "add_repository_title": "Add app repository?",
-            "add_repository_description": "This app requires a repository that is currently not known. Do you want to add the repository {repository}?",
-            "add_repository_store_description": "Do you want to add the app repository {repository}?",
             "error_repository_not_found": "The repository for this app was not found"
           },
           "panel": {

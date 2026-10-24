@@ -15,17 +15,14 @@ import { extractSearchParam } from "../../../common/url/search-params";
 import type { HassioAddonDetails } from "../../../data/hassio/addon";
 import { fetchHassioAddonInfo } from "../../../data/hassio/addon";
 import { extractApiErrorMessage } from "../../../data/hassio/common";
-import {
-  addStoreRepository,
-  fetchSupervisorStore,
-} from "../../../data/supervisor/store";
-import { showConfirmationDialog } from "../../../dialogs/generic/show-dialog-box";
+import { fetchSupervisorStore } from "../../../data/supervisor/store";
 import "../../../layouts/hass-error-screen";
 import "../../../layouts/hass-loading-screen";
 import "../../../layouts/hass-tabs-subpage";
 import type { PageNavigation } from "../../../layouts/hass-tabs-subpage";
 import { haStyle } from "../../../resources/styles";
 import type { HomeAssistant, Route } from "../../../types";
+import { showRepositoryDialog } from "./dialogs/repositories/show-dialog-repository";
 
 // Import app-view components
 import "./app-view/supervisor-app-router";
@@ -193,26 +190,13 @@ class HaConfigAppDashboard extends LitElement {
       return;
     }
 
-    if (
-      !(await showConfirmationDialog(this, {
-        title: this.hass.localize(
-          "ui.panel.config.apps.my.add_repository_title"
-        ),
-        text: this.hass.localize(
-          "ui.panel.config.apps.my.add_repository_description",
-          { repository: repositoryUrl }
-        ),
-        confirmText: this.hass.localize("ui.common.add"),
-        dismissText: this.hass.localize("ui.common.cancel"),
-      }))
-    ) {
+    if (!(await showRepositoryDialog(this, { repositoryUrl }))) {
       this._error = this.hass.localize(
         "ui.panel.config.apps.my.error_repository_not_found"
       );
       return;
     }
 
-    await addStoreRepository(this.hass, repositoryUrl);
     this._addon = await fetchHassioAddonInfo(this.hass.callWS, slug);
   }
 

@@ -16,6 +16,7 @@ import type {
 } from "../../../src/data/hassio/supervisor";
 import type { SupervisorMounts } from "../../../src/data/supervisor/mounts";
 import type { SupervisorUpdateConfig } from "../../../src/data/supervisor/update";
+import type { StoreRepository } from "../../../src/data/supervisor/store";
 import type { MockHomeAssistant } from "../../../src/fake_data/provide_hass";
 
 // `icon`/`logo` are false on purpose: the panel would otherwise request
@@ -198,6 +199,16 @@ const ADDON_STATS: HassioStats = {
 };
 
 export const mockHassioSupervisor = (hass: MockHomeAssistant) => {
+  const repositories: StoreRepository[] = [
+    {
+      slug: "example",
+      name: "Example apps",
+      maintainer: "Example",
+      source: "https://github.com/example/private-apps",
+      url: "https://github.com/example/private-apps",
+      has_credentials: true,
+    },
+  ];
   // Gallery pages rely on this to enable the hassio-gated pickers. The demo
   // lists hassio in its own components, hence the guard against duplicates.
   if (!hass.config.components.includes("hassio")) {
@@ -205,6 +216,47 @@ export const mockHassioSupervisor = (hass: MockHomeAssistant) => {
   }
 
   hass.mockWS("supervisor/api", (msg) => {
+    if (msg.data?.credentials?.password === "invalid-fixture-token") {
+      return Promise.reject(new Error("Authentication failed"));
+    }
+
+    if (msg.endpoint === "/store") {
+      return {
+        addons: [],
+        repositories: repositories.map((repo) => ({ ...repo })),
+      };
+    }
+
+    if (msg.endpoint === "/store/repositories") {
+      if (msg.method === "post") {
+        const source: string = msg.data.repository;
+        repositories.push({
+          slug: `example-${repositories.length}`,
+          name: "Custom apps",
+          maintainer: "Example",
+          source,
+          url: source,
+          has_credentials: Boolean(msg.data.credentials),
+        });
+        return null;
+      }
+      return repositories.map((repo) => ({ ...repo }));
+    }
+
+    const credentials = msg.endpoint.match(
+      /^\/store\/repositories\/([^/]+)\/credentials$/
+    );
+    if (credentials) {
+      const repository = repositories.find(
+        (item) => item.slug === credentials[1]
+      );
+      if (!repository) {
+        return Promise.reject(new Error("Repository not found"));
+      }
+      repository.has_credentials = msg.method === "post";
+      return null;
+    }
+
     if (msg.endpoint === "/supervisor/info") {
       const data: HassioSupervisorInfo = {
         version: "2026.07.1",
